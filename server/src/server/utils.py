@@ -2,6 +2,7 @@ import os
 import requests
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+from psycopg2.extras import RealDictCursor
 from .db import get_db_connection
 
 
@@ -37,26 +38,45 @@ class BaseballPlayer:
         Handles the API's inconsistent field naming:
         - "third baseman" -> triples (3B)
         - "a walk" -> walks (BB)
+        - "--" values -> 0 (for missing data)
         """
+        def safe_int(value: Any) -> int:
+            """Convert value to int, handling '--' and other non-numeric values."""
+            if value == "--" or value == "" or value is None:
+                return 0
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return 0
+        
+        def safe_float(value: Any) -> float:
+            """Convert value to float, handling '--' and other non-numeric values."""
+            if value == "--" or value == "" or value is None:
+                return 0.0
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                return 0.0
+        
         return cls(
             player_name=raw["Player name"],
             position=raw["position"],
-            games=raw["Games"],
-            at_bats=raw["At-bat"],
-            runs=raw["Runs"],
-            hits=raw["Hits"],
-            doubles=raw["Double (2B)"],
-            triples=raw["third baseman"],  # API incorrectly names this field
-            home_runs=raw["home run"],
-            rbis=raw["run batted in"],
-            walks=raw["a walk"],  # API incorrectly names this field
-            strikeouts=raw["Strikeouts"],
-            stolen_bases=raw["stolen base"],
-            caught_stealing=raw["Caught stealing"],
-            batting_average=float(raw["AVG"]),
-            on_base_percentage=float(raw["On-base Percentage"]),
-            slugging_percentage=float(raw["Slugging Percentage"]),
-            ops=float(raw["On-base Plus Slugging"]),
+            games=safe_int(raw["Games"]),
+            at_bats=safe_int(raw["At-bat"]),
+            runs=safe_int(raw["Runs"]),
+            hits=safe_int(raw["Hits"]),
+            doubles=safe_int(raw["Double (2B)"]),
+            triples=safe_int(raw["third baseman"]),  # API incorrectly names this field
+            home_runs=safe_int(raw["home run"]),
+            rbis=safe_int(raw["run batted in"]),
+            walks=safe_int(raw["a walk"]),  # API incorrectly names this field
+            strikeouts=safe_int(raw["Strikeouts"]),
+            stolen_bases=safe_int(raw["stolen base"]),
+            caught_stealing=safe_int(raw["Caught stealing"]),
+            batting_average=safe_float(raw["AVG"]),
+            on_base_percentage=safe_float(raw["On-base Percentage"]),
+            slugging_percentage=safe_float(raw["Slugging Percentage"]),
+            ops=safe_float(raw["On-base Plus Slugging"]),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -87,27 +107,45 @@ class BaseballPlayer:
     @classmethod
     def from_db_row(cls, row: Dict[str, Any]) -> "BaseballPlayer":
         """Create a BaseballPlayer from a database row."""
+        def safe_float(value: Any) -> float:
+            """Convert value to float, handling Decimal and other types."""
+            if value is None:
+                return 0.0
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                return 0.0
+        
+        def safe_int(value: Any) -> int:
+            """Convert value to int, handling Decimal and other types."""
+            if value is None:
+                return 0
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return 0
+        
         return cls(
-            id=row["id"],
-            player_name=row["player_name"],
-            position=row["position"],
-            games=row["games"],
-            at_bats=row["at_bats"],
-            runs=row["runs"],
-            hits=row["hits"],
-            doubles=row["doubles"],
-            triples=row["triples"],
-            home_runs=row["home_runs"],
-            rbis=row["rbis"],
-            walks=row["walks"],
-            strikeouts=row["strikeouts"],
-            stolen_bases=row["stolen_bases"],
-            caught_stealing=row["caught_stealing"],
-            batting_average=float(row["batting_average"]),
-            on_base_percentage=float(row["on_base_percentage"]),
-            slugging_percentage=float(row["slugging_percentage"]),
-            ops=float(row["ops"]),
-            is_edited=row.get("is_edited", False),
+            id=safe_int(row.get("id")),
+            player_name=row.get("player_name", ""),
+            position=row.get("position", ""),
+            games=safe_int(row.get("games")),
+            at_bats=safe_int(row.get("at_bats")),
+            runs=safe_int(row.get("runs")),
+            hits=safe_int(row.get("hits")),
+            doubles=safe_int(row.get("doubles")),
+            triples=safe_int(row.get("triples")),
+            home_runs=safe_int(row.get("home_runs")),
+            rbis=safe_int(row.get("rbis")),
+            walks=safe_int(row.get("walks")),
+            strikeouts=safe_int(row.get("strikeouts")),
+            stolen_bases=safe_int(row.get("stolen_bases")),
+            caught_stealing=safe_int(row.get("caught_stealing")),
+            batting_average=safe_float(row.get("batting_average")),
+            on_base_percentage=safe_float(row.get("on_base_percentage")),
+            slugging_percentage=safe_float(row.get("slugging_percentage")),
+            ops=safe_float(row.get("ops")),
+            is_edited=bool(row.get("is_edited", False)),
         )
 
 
@@ -155,7 +193,7 @@ def save_player_to_db(player: BaseballPlayer) -> int:
             caught_stealing, batting_average, on_base_percentage,
             slugging_percentage, ops, is_edited
         ) VALUES (
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
         ) RETURNING id
     """, (
         player.player_name, player.position, player.games, player.at_bats,
