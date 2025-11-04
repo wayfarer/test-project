@@ -1,6 +1,6 @@
 # test-project
 
-A full-stack application with a Flask backend and Vue.js frontend.
+A full-stack baseball player statistics application with a Flask backend and Vue.js frontend. Displays player data from an external API, allows sorting by hits or home runs, generates LLM-powered player descriptions, and enables editing player statistics.
 
 ## Tech Stack
 
@@ -46,6 +46,9 @@ A full-stack application with a Flask backend and Vue.js frontend.
    
    # Initialize the schema
    poetry run python -m server.init_db
+   
+   # Sync players from the external API
+   poetry run python -m server.sync_players
    ```
 
 ### Frontend Setup
@@ -102,6 +105,11 @@ test-project/
 ## API Endpoints
 
 - `GET /` - Returns `{"message": "Hello World"}`
+- `GET /api/players?sort_by=hits|home_runs` - Get all players, sorted by hits or home runs
+- `GET /api/players/<id>` - Get a single player by ID
+- `GET /api/players/<id>/description` - Get or generate LLM description for a player
+- `PUT /api/players/<id>` - Update a player's data
+- `POST /api/players/sync` - Sync players from external API to database
 
 ## Environment Variables
 
@@ -125,3 +133,11 @@ The application is configured for development with:
 - Hot module replacement in Vue.js
 - Flask debug mode enabled
 - CORS enabled for local development
+
+## Features
+
+- **Player List**: View all baseball players with key statistics
+- **Sorting**: Sort players by hits or home runs
+- **Player Details**: Click on any player to see their full statistics and an AI-generated description
+- **Edit Players**: Edit player data with changes persisted to the database
+- **LLM Descriptions**: Automatically generates player descriptions using OpenAI's API (cached for performance)
