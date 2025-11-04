@@ -6,6 +6,7 @@ A full-stack application with a Flask backend and Vue.js frontend.
 
 - **Backend**: Flask (Python) with Poetry for dependency management
 - **Frontend**: Vue.js 3 with TypeScript and Vite
+- **Database**: PostgreSQL
 - **CORS**: Enabled for cross-origin requests between frontend and backend
 
 ## Prerequisites
@@ -14,6 +15,7 @@ A full-stack application with a Flask backend and Vue.js frontend.
 - Poetry
 - Node.js 20.19.0+ or 22.12.0+
 - npm
+- PostgreSQL
 
 ## Setup
 
@@ -34,6 +36,16 @@ A full-stack application with a Flask backend and Vue.js frontend.
    FLASK_HOST=0.0.0.0
    FLASK_PORT=5000
    FLASK_DEBUG=True
+   OPENAI_API_KEY=your_openai_api_key_here
+   ```
+
+4. Set up the database:
+   ```bash
+   # Create the database (in psql)
+   CREATE DATABASE test_project;
+   
+   # Initialize the schema
+   poetry run python -m server.init_db
    ```
 
 ### Frontend Setup
@@ -97,6 +109,12 @@ test-project/
 - `FLASK_HOST` - Server host (default: `0.0.0.0`)
 - `FLASK_PORT` - Server port (default: `5000`)
 - `FLASK_DEBUG` - Enable debug mode (default: `True`)
+- `OPENAI_API_KEY` - OpenAI API key for LLM-generated player descriptions (required)
+- `DB_HOST` - Database host (default: `localhost`)
+- `DB_PORT` - Database port (default: `5432`)
+- `DB_NAME` - Database name (default: `test_project`)
+- `DB_USER` - Database user (default: current system user)
+- `DB_PASSWORD` - Database password (optional, uses passwordless auth if not set)
 
 ### Frontend (`client/.env`)
 - `VITE_API_URL` - Backend API base URL (default: `http://localhost:5000`)
