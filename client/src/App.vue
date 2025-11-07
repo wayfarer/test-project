@@ -21,6 +21,7 @@ interface Player {
   on_base_percentage: number
   slugging_percentage: number
   ops: number
+  hits_per_game: number  // Computed field (hits / games)
   is_edited: boolean
 }
 
@@ -29,7 +30,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 const players = ref<Player[]>([])
 const loading = ref<boolean>(true)
 const error = ref<string | null>(null)
-const sortBy = ref<'hits' | 'home_runs'>('hits')
+const sortBy = ref<'hits' | 'home_runs' | 'hits_per_game'>('hits')
 const selectedPlayer = ref<Player | null>(null)
 const playerDescription = ref<string>('')
 const loadingDescription = ref<boolean>(false)
@@ -171,6 +172,17 @@ onMounted(() => {
         >
           Sort by Home Runs
         </button>
+        <button
+          @click="sortBy = 'hits_per_game'; fetchPlayers()"
+          :class="[
+            'px-4 py-2 rounded-lg font-medium transition-colors',
+            sortBy === 'hits_per_game' 
+              ? 'bg-blue-600 text-white' 
+              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+          ]"
+        >
+          Sort by Hits/Game
+        </button>
       </div>
 
       <!-- Error Message -->
@@ -197,6 +209,7 @@ onMounted(() => {
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">HR</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">RBI</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AVG</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">H/G</th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -217,6 +230,7 @@ onMounted(() => {
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{{ formatNumber(player.home_runs) }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatNumber(player.rbis) }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatAverage(player.batting_average) }}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatAverage(player.hits_per_game) }}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                   <button
                     @click.stop="startEditing(player)"
@@ -302,6 +316,10 @@ onMounted(() => {
               <div>
                 <span class="text-gray-500">OPS:</span>
                 <span class="ml-2 font-medium">{{ formatAverage(selectedPlayer.ops) }}</span>
+              </div>
+              <div>
+                <span class="text-gray-500">Hits/Game:</span>
+                <span class="ml-2 font-medium">{{ formatAverage(selectedPlayer.hits_per_game) }}</span>
               </div>
             </div>
             

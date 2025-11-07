@@ -29,6 +29,13 @@ class BaseballPlayer:
     slugging_percentage: float = 0.0
     ops: float = 0.0
     is_edited: bool = False
+    
+    @property
+    def hits_per_game(self) -> float:
+        """Calculate hits per game (computed property)."""
+        if self.games and self.games > 0:
+            return float(self.hits) / float(self.games)
+        return 0.0
 
     @classmethod
     def from_raw(cls, raw: Dict[str, Any]) -> "BaseballPlayer":
@@ -101,6 +108,7 @@ class BaseballPlayer:
             "on_base_percentage": self.on_base_percentage,
             "slugging_percentage": self.slugging_percentage,
             "ops": self.ops,
+            "hits_per_game": self.hits_per_game,  # Computed property
             "is_edited": self.is_edited,
         }
 
@@ -217,7 +225,7 @@ def get_all_players_from_db(sort_by: str = "hits") -> List[BaseballPlayer]:
     Get all players from the database.
     
     Args:
-        sort_by: Either "hits" or "home_runs" to sort the results.
+        sort_by: Either "hits", "home_runs", or "hits_per_game" to sort the results.
     
     Returns:
         List of BaseballPlayer objects sorted by the specified field.
@@ -226,14 +234,26 @@ def get_all_players_from_db(sort_by: str = "hits") -> List[BaseballPlayer]:
     cur = conn.cursor(cursor_factory=RealDictCursor)
     
     # Validate sort_by to prevent SQL injection
-    valid_sorts = {"hits", "home_runs"}
+    valid_sorts = {"hits", "home_runs", "hits_per_game"}
     if sort_by not in valid_sorts:
         sort_by = "hits"
     
-    cur.execute(f"""
-        SELECT * FROM players
-        ORDER BY {sort_by} DESC
-    """)
+    # Calculate hits_per_game in SQL for sorting
+    if sort_by == "hits_per_game":
+        cur.execute("""
+            SELECT *,
+                CASE 
+                    WHEN games > 0 THEN CAST(hits AS DECIMAL) / CAST(games AS DECIMAL)
+                    ELSE 0.0
+                END AS hits_per_game_calc
+            FROM players
+            ORDER BY hits_per_game_calc DESC
+        """)
+    else:
+        cur.execute(f"""
+            SELECT * FROM players
+            ORDER BY {sort_by} DESC
+        """)
     
     rows = cur.fetchall()
     cur.close()
@@ -275,30 +295,34 @@ def update_player_in_db(player: BaseballPlayer) -> bool:
     conn = get_db_connection()
     cur = conn.cursor()
     
-    cur.execute("""
-        UPDATE players SET
-            player_name = %s, position = %s, games = %s, at_bats = %s,
-            runs = %s, hits = %s, doubles = %s, triples = %s,
-            home_runs = %s, rbis = %s, walks = %s, strikeouts = %s,
-            stolen_bases = %s, caught_stealing = %s, batting_average = %s,
-            on_base_percentage = %s, slugging_percentage = %s, ops = %s,
-            is_edited = %s, updated_at = CURRENT_TIMESTAMP
-        WHERE id = %s
-    """, (
-        player.player_name, player.position, player.games, player.at_bats,
-        player.runs, player.hits, player.doubles, player.triples,
-        player.home_runs, player.rbis, player.walks, player.strikeouts,
-        player.stolen_bases, player.caught_stealing, player.batting_average,
-        player.on_base_percentage, player.slugging_percentage, player.ops,
-        player.is_edited, player.id
-    ))
-    
-    updated = cur.rowcount > 0
-    conn.commit()
-    cur.close()
-    conn.close()
-    
-    return updated
+    try:
+        cur.execute("""
+            UPDATE players SET
+                player_name = %s, position = %s, games = %s, at_bats = %s,
+                runs = %s, hits = %s, doubles = %s, triples = %s,
+                home_runs = %s, rbis = %s, walks = %s, strikeouts = %s,
+                stolen_bases = %s, caught_stealing = %s, batting_average = %s,
+                on_base_percentage = %s, slugging_percentage = %s, ops = %s,
+                is_edited = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (
+            player.player_name, player.position, player.games, player.at_bats,
+            player.runs, player.hits, player.doubles, player.triples,
+            player.home_runs, player.rbis, player.walks, player.strikeouts,
+            player.stolen_bases, player.caught_stealing, player.batting_average,
+            player.on_base_percentage, player.slugging_percentage, player.ops,
+            player.is_edited, player.id
+        ))
+        
+        updated = cur.rowcount > 0
+        conn.commit()
+        return updated
+    except Exception as e:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
 
 
 def sync_players_from_api():

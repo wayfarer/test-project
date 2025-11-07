@@ -85,6 +85,12 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_players_name ON players(player_name)
     """)
     
+    # Remove hits_per_game column if it exists (now calculated on-the-fly)
+    cur.execute("""
+        ALTER TABLE players
+        DROP COLUMN IF EXISTS hits_per_game
+    """)
+    
     conn.commit()
     cur.close()
     conn.close()

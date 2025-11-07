@@ -26,8 +26,8 @@ def get_players():
     sort_by = request.args.get('sort_by', 'hits')
     
     # Validate sort_by parameter
-    if sort_by not in ['hits', 'home_runs']:
-        return jsonify({"error": "sort_by must be 'hits' or 'home_runs'"}), 400
+    if sort_by not in ['hits', 'home_runs', 'hits_per_game']:
+        return jsonify({"error": "sort_by must be 'hits', 'home_runs', or 'hits_per_game'"}), 400
     
     try:
         players = get_all_players_from_db(sort_by=sort_by)
@@ -79,9 +79,21 @@ def update_player(player_id):
         if not data:
             return jsonify({"error": "No data provided"}), 400
         
-        # Update player fields from request data
+        # Update player fields from request data (exclude computed fields)
+        computed_fields = {'id', 'hits_per_game'}  # Fields that shouldn't be updated directly
         for key, value in data.items():
-            if hasattr(player, key):
+            if hasattr(player, key) and key not in computed_fields:
+                # Handle None values - convert to appropriate defaults
+                if value is None:
+                    if key in ['games', 'at_bats', 'runs', 'hits', 'doubles', 'triples', 
+                              'home_runs', 'rbis', 'walks', 'strikeouts', 'stolen_bases', 
+                              'caught_stealing']:
+                        value = 0
+                    elif key in ['batting_average', 'on_base_percentage', 'slugging_percentage', 
+                                'ops']:
+                        value = 0.0
+                    elif key == 'is_edited':
+                        value = False
                 setattr(player, key, value)
         
         player.is_edited = True
@@ -93,9 +105,15 @@ def update_player(player_id):
         
         return jsonify(player.to_dict()), 200
     except ValueError as e:
+        import traceback
+        print(f"ValueError in update_player: {e}")
+        print(traceback.format_exc())
         return jsonify({"error": str(e)}), 400
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        print(f"Error in update_player: {e}")
+        print(traceback.format_exc())
+        return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500
 
 
 @app.route('/api/players/sync', methods=['POST'])
